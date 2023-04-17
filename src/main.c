@@ -82,8 +82,17 @@ void setup()
     player.walkDirection = 0;
     player.turnDirection = 0;
     player.rotateAngle = PI / 2;
-    player.walkSpeed = 50;
+    player.walkSpeed = 100;
     player.turnSpeed = 45 * (PI / 180);
+}
+
+int mapHasWallAt(float x, float y)
+{
+    if (x < 0 || x > WINDOW_WIDTH || y < 0 || y > WINDOW_HEIGHT)
+        return TRUE;
+    int mapGridIndexX = floor(x / TILE_SIZE);
+    int mapGridIndexY = floor(y / TILE_SIZE);
+    return map[mapGridIndexX][mapGridIndexY] != 0;
 }
 
 void movePlayer(float deltaTime)
@@ -93,11 +102,11 @@ void movePlayer(float deltaTime)
     float newPlayerX = player.x + cos(player.rotateAngle) * moveStep;
     float newPlayerY = player.y + sin(player.rotateAngle) * moveStep;
 
-    // TODO:
-    // perform wall collision
-
-    player.x = newPlayerX;
-    player.y = newPlayerY;
+    if (!mapHasWallAt(newPlayerX, newPlayerY))
+    {
+        player.x = newPlayerX;
+        player.y = newPlayerY;
+    }
 }
 
 void update()
@@ -125,8 +134,8 @@ void renderPlayer()
         renderer,
         MINIMAP_SCALE_FACTOR * player.x,
         MINIMAP_SCALE_FACTOR * player.y,
-        MINIMAP_SCALE_FACTOR * player.x + cos(player.rotateAngle) * 40,
-        MINIMAP_SCALE_FACTOR * player.y + sin(player.rotateAngle) * 40
+         MINIMAP_SCALE_FACTOR * (player.x + cos(player.rotateAngle) * 40),
+        MINIMAP_SCALE_FACTOR * (player.y + sin(player.rotateAngle) * 40)
     );
 }
 
