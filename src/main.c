@@ -2,21 +2,22 @@
 #include <limits.h>
 #include <SDL2/SDL.h>
 #include "constants.h"
+#include "textures.h"
 
 const int map[MAP_NUM_ROWS][MAP_NUM_COLS] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ,1, 1, 1, 1, 1, 1, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+    {1, 0, 0, 0, 2, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5}
 };
 
 struct Player
@@ -85,6 +86,7 @@ int initializeWindow()
 
 void destroyWindow()
 {
+    freeWallTextures();
     free(colorBuffer);
     SDL_DestroyTexture(colorBufferTexture);
     SDL_DestroyRenderer(renderer);
@@ -108,11 +110,14 @@ void setup()
     //create an SDL_Texture to display the colorbuffer
     colorBufferTexture = SDL_CreateTexture(
         renderer,
-        SDL_PIXELFORMAT_ABGR8888,
+        SDL_PIXELFORMAT_RGBA32,
         SDL_TEXTUREACCESS_STREAMING,
         WINDOW_WIDTH,
         WINDOW_HEIGHT
     );
+
+    // Asks uPNG library to decode all PNG files and loads the wallTextures array
+    loadWallTextures();
 }
 
 int mapHasWallAt(float x, float y)
@@ -415,15 +420,31 @@ void generate3DProjection()
 
         // set the color of the celling
         for (int y = 0; y < wallTopPixel; y++)
-            colorBuffer[(WINDOW_WIDTH * y) + 1] = 0xFF333333;
+            colorBuffer[(WINDOW_WIDTH * y) + 1] = 0xFF444444;
+        
+        int textureOffsetX;
+        if (rays[i].wasHitVertical)
+            textureOffsetX = (int) rays[i].wallHitY % TILE_SIZE;
+        else
+            textureOffsetX = (int) rays[i].wallHitX % TILE_SIZE;
+        
+        //get the correct texture id number from the map content
+        int textNum = rays[i].wallHitContent -1;
 
         //render the wall from wallTopPixel to wallBottomPixel
         for (int y = wallTopPixel; y < wallBottomPixel; y++)
-            colorBuffer[(WINDOW_WIDTH * y) + i] = rays[i].wasHitVertical ? 0xFFFFFFFF : 0xFFCCCCCC;
+        {
+            int distanceFromTop = y + (wallStripHeight / 2) - (WINDOW_HEIGHT / 2);
+            int textureOffsetY = distanceFromTop * ((float) TEXTURE_HEIGHT / wallStripHeight);
+
+            //set the color of the wall based on the color from texture
+            uint32_t texelColor = wallTextures[textNum].texture_buffer[(TEXTURE_WIDTH * textureOffsetY) +  textureOffsetX];
+            colorBuffer[(WINDOW_WIDTH * y) + i] = texelColor;
+        }
         
         //set the color the floor
         for (int y = wallBottomPixel; y < WINDOW_HEIGHT; y++)
-            colorBuffer[(WINDOW_WIDTH * y) + i] = 0xFF777777;
+            colorBuffer[(WINDOW_WIDTH * y) + i] = 0xFF888888;
     }
 }
 
